@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  homework-deployment-1
+  namespace: homework
+  labels:
+    app: homework-app
+spec:
+  selector:
+    matchLabels:
+      app: homework-app
+  replicas: 3
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app:  homework-app
+    spec:
+      nodeSelector:
+        homework: "true"
+      containers:
+      - name: homework-container
+        image: busybox
+        ports: 
+          - containerPort: 8000
+        volumeMounts:
+          - mountPath: /homework
+            name: homework-volume
+        command:
+          - /bin/sh
+          - -c
+          - |
+            httpd -f -p 8000 -h /homework
+        lifecycle:
+          preStop:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  rm -f /homework/index.html
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - test -f /homework/index.html
+      initContainers:
+      - name: homework-init
+        image: busybox
+        env:
+          - name: INDEX_URL
+            value: "https://dadata.ru/suggestions/"
+        volumeMounts:
+          - name: homework-volume
+            mountPath: /init
+        command:
+          - /bin/sh
+          - -c
+          - |
+            wget -O /init/index.html "$INDEX_URL"
+      volumes:
+      - name: homework-volume
+        emptyDir: {}
+    
